@@ -1,5 +1,8 @@
 package com.demo;
 
+import com.google.gson.FieldNamingPolicy;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.plaid.client.PlaidClient;
 import com.plaid.client.request.AuthGetRequest;
 import com.plaid.client.request.InstitutionsGetByIdRequest;
@@ -7,6 +10,7 @@ import com.plaid.client.request.ItemGetRequest;
 import com.plaid.client.request.ItemPublicTokenExchangeRequest;
 import com.plaid.client.request.TransactionsGetRequest;
 import com.plaid.client.response.AuthGetResponse;
+import com.plaid.client.response.ErrorResponse;
 import com.plaid.client.response.InstitutionsGetByIdResponse;
 import com.plaid.client.response.ItemGetResponse;
 import com.plaid.client.response.ItemPublicTokenExchangeResponse;
@@ -38,6 +42,9 @@ public class HomeController {
     private final Environment env;
     private final PlaidClient plaidClient;
     private final PlaidAuthService authService;
+    private final Gson gson = new GsonBuilder()
+            .setFieldNamingPolicy(FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES)
+            .create();
 
 
     @Autowired
@@ -102,8 +109,9 @@ public class HomeController {
 
             return ResponseEntity.ok(data);
         } else {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(getErrorResponseData(response.errorBody().string()));
+            Map<String, Object> data = new HashMap<>();
+            data.put("error", "Unable to pull accounts from the Plaid API.");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(data);
         }
     }
 
@@ -121,10 +129,10 @@ public class HomeController {
         Response<ItemGetResponse> itemResponse = this.plaidClient.service()
                 .itemGet(new ItemGetRequest(this.authService.getAccessToken()))
                 .execute();
+
         if (!itemResponse.isSuccessful()) {
-            Map<String, Object> data = new HashMap<>();
-            data.put("error", itemResponse.errorBody());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(data);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(getErrorResponseData("Unable to pull item information from the Plaid API."));
         } else {
             ItemStatus item = itemResponse.body().getItem();
 
@@ -133,9 +141,8 @@ public class HomeController {
                     .execute();
 
             if (!institutionsResponse.isSuccessful()) {
-                Map<String, Object> data = new HashMap<>();
-                data.put("error", itemResponse.errorBody());
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(data);
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body(getErrorResponseData("Unable to pull institution information from the Plaid API."));
             } else {
                 Map<String, Object> data = new HashMap<>();
                 data.put("error", false);
@@ -169,8 +176,9 @@ public class HomeController {
         if (response.isSuccessful()) {
             return ResponseEntity.ok(response.body());
         } else {
+            ErrorResponse error = this.gson.fromJson(response.errorBody().charStream(), ErrorResponse.class);
             Map<String, Object> data = new HashMap<>();
-            data.put("error", response.errorBody());
+            data.put("error", error);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(data);
         }
     }

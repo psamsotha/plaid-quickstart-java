@@ -1,8 +1,5 @@
 package com.demo;
 
-import com.google.gson.FieldNamingPolicy;
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.plaid.client.PlaidClient;
 import com.plaid.client.request.AuthGetRequest;
 import com.plaid.client.request.InstitutionsGetByIdRequest;
@@ -42,9 +39,6 @@ public class HomeController {
     private final Environment env;
     private final PlaidClient plaidClient;
     private final PlaidAuthService authService;
-    private final Gson gson = new GsonBuilder()
-            .setFieldNamingPolicy(FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES)
-            .create();
 
 
     @Autowired
@@ -176,7 +170,8 @@ public class HomeController {
         if (response.isSuccessful()) {
             return ResponseEntity.ok(response.body());
         } else {
-            ErrorResponse error = this.gson.fromJson(response.errorBody().charStream(), ErrorResponse.class);
+
+            ErrorResponse error = this.plaidClient.parseError(response);
             Map<String, Object> data = new HashMap<>();
             data.put("error", error);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(data);
